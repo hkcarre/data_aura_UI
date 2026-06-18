@@ -40,7 +40,7 @@ function App() {
               <div className="flex items-center gap-2">
                 <span className="font-bold tracking-tight text-white font-display text-lg">Data Aura</span>
                 <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 bg-violet-600/10 text-violet-400 border border-violet-500/20 rounded">
-                  ARTF v1.0
+                  ARTF-Aligned
                 </span>
               </div>
               <span className="text-slate-500 text-[10px] uppercase font-bold tracking-widest block mt-0.5">
