@@ -1,0 +1,69 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-brand-950 text-slate-100 font-sans antialiased overflow-x-hidden selection:bg-brand-500 selection:text-white;
+    background-image: 
+      radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.08) 0px, transparent 50%),
+      radial-gradient(at 100% 100%, rgba(139, 92, 246, 0.08) 0px, transparent 50%),
+      radial-gradient(at 50% 50%, rgba(16, 185, 129, 0.03) 0px, transparent 50%);
+    background-attachment: fixed;
+  }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #090d16;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #1e293b;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #334155;
+}
+
+/* Glassmorphism Classes */
+.glass-panel {
+  @apply backdrop-blur-md bg-slate-900/60 border border-slate-800/80;
+}
+
+.glass-panel-hover {
+  @apply transition-all duration-300 hover:bg-slate-900/80 hover:border-slate-700/80 hover:shadow-lg hover:shadow-brand-500/5;
+}
+
+.glass-input {
+  @apply bg-slate-950/80 border border-slate-800 text-slate-100 placeholder-slate-500 rounded-lg px-4 py-2.5 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition-all duration-200;
+}
+
+/* Glowing Effects */
+.glow-emerald {
+  box-shadow: 0 0 20px -5px rgba(16, 185, 129, 0.2);
+}
+
+.glow-violet {
+  box-shadow: 0 0 20px -5px rgba(139, 92, 246, 0.2);
+}
+
+.glow-indigo {
+  box-shadow: 0 0 20px -5px rgba(99, 102, 241, 0.2);
+}
+
+/* Hide default Vite styles since we're using Tailwind */
+#root {
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
