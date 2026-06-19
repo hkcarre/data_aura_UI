@@ -1,10 +1,12 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { randomUUID } from 'crypto';
+import jwt from 'jsonwebtoken';
 import { executeCleanRoomQuery, EnclaveQuery } from '../cleanroom/altaStataRuntime';
 import prisma from '../db/prismaClient';
 
 const router = Router();
+const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-for-dev-only-do-not-use-in-prod';
 
 // --- Zod Input Validation Schemas ---
 const AudienceRequestSchema = z.object({
@@ -37,6 +39,23 @@ router.post('/audience/request', async (req: Request, res: Response): Promise<vo
   const { brandId, targetCategory, requestedEpsilon } = parsed.data;
 
   try {
+    // Check if consumer globally paused sharing for this brand/category
+    const consent = await prisma.consentSetting.findFirst({
+      where: { brandId, category: targetCategory },
+    });
+
+    if (consent && !consent.enabled) {
+      await prisma.ledgerEntry.create({
+        data: {
+          action: 'AAMP_AUDIENCE_REQUEST_BLOCKED',
+          brandId,
+          auditHash: 'CONSENT_REVOKED',
+        },
+      });
+      res.status(403).json({ error: 'Consent previously revoked by consumer' });
+      return;
+    }
+
     const query: EnclaveQuery = {
       brandId,
       targetCategory,
@@ -63,8 +82,12 @@ router.post('/audience/request', async (req: Request, res: Response): Promise<vo
       return;
     }
 
-    // Issue persistent AAMP-compliant permission token
-    const token = `tkn_${brandId}_${randomUUID().substring(0, 8)}`;
+    // Issue persistent AAMP-compliant signed JWT token
+    const token = jwt.sign(
+      { brandId, cohortId: result.cohortId },
+      JWT_SECRET,
+      { expiresIn: '24h', jwtid: randomUUID() }
+    );
     await prisma.consentToken.create({
       data: { token, brandId, cohortId: result.cohortId, status: 'ACTIVE' },
     });
@@ -104,6 +127,15 @@ router.post('/consent/verify', async (req: Request, res: Response): Promise<void
   }
   const { token, action } = parsed.data;
 
+  // 1. Verify JWT signature natively
+  try {
+    jwt.verify(token, JWT_SECRET);
+  } catch (err) {
+    res.status(403).json({ valid: false, reason: 'TOKEN_SIGNATURE_INVALID_OR_EXPIRED' });
+    return;
+  }
+
+  // 2. Check token against database registry
   const tokenRecord = await prisma.consentToken.findUnique({ where: { token } });
 
   if (!tokenRecord) {

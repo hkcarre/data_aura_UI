@@ -1,6 +1,7 @@
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import rateLimit from 'express-rate-limit';
 import { z } from 'zod';
 import aampRoutes from './routes/aampRoutes';
 import publisherRoutes from './routes/publisherRoutes';
@@ -19,14 +20,39 @@ app.use(cors());
 app.use(express.json());
 
 // ============================================================
+// Middleware: Global Rate Limiting
+// ============================================================
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limit each IP to 100 requests per `window`
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests, please try again later.' }
+});
+
+app.use('/api/', apiLimiter);
+
+// ============================================================
+// Middleware: API Key Authentication (Mock B2B Auth)
+// ============================================================
+const requireApiKey = (req: Request, res: Response, next: NextFunction) => {
+  const apiKey = req.headers['x-api-key'];
+  if (!apiKey || apiKey !== (process.env.API_KEY || 'dev-api-key-123')) {
+    res.status(401).json({ error: 'Unauthorized: Missing or invalid X-API-Key' });
+    return;
+  }
+  next();
+};
+
+// ============================================================
 // AAMP Standard Protocol Routes
 // ============================================================
-app.use('/api/v1/aamp', aampRoutes);
+app.use('/api/v1/aamp', requireApiKey, aampRoutes);
 
 // ============================================================
 // Publisher Agent Routes
 // ============================================================
-app.use('/api/v1/publisher', publisherRoutes);
+app.use('/api/v1/publisher', requireApiKey, publisherRoutes);
 
 // ============================================================
 // Audit Ledger — GET all entries (for Admin Portal)

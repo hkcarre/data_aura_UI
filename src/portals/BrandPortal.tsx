@@ -61,7 +61,10 @@ export const BrandPortal: React.FC<BrandPortalProps> = ({
     try {
       const response = await fetch('http://localhost:3001/api/v1/aamp/audience/request', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-api-key': 'dev-api-key-123'
+        },
         body: JSON.stringify({
           brandId: 'nike',
           targetCategory: selectedCategory,
