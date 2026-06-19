@@ -25,3 +25,10 @@ dist-ssr
 
 # Nested repos / unrelated projects
 liftline-artf/
+
+# Backend server
+server/.env
+server/node_modules/
+server/dist/
+server/prisma/*.db
+server/prisma/*.db-journal

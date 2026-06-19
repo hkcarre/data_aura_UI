@@ -87,8 +87,28 @@ export const ConsumerPortal: React.FC<ConsumerPortalProps> = ({
     setBrands(prev => prev.map(brand => {
       if (brand.id === id) {
         const nextState = !brand.enabled;
-        
-        // Log transaction
+
+        // Fire backend consent/revoke API
+        fetch('http://localhost:3001/api/v1/consumer/consent', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            brandId: brand.id,
+            category: brand.category,
+            enabled: nextState
+          })
+        })
+          .then(r => r.json())
+          .then(data => {
+            if (!nextState && data.revokedTokens > 0) {
+              onNotify(`${brand.name} revoked. ${data.revokedTokens} active token(s) invalidated in Trust Layer.`);
+            }
+          })
+          .catch(() => {
+            onNotify(`Backend unavailable — local toggle applied only.`);
+          });
+
+        // Log local transaction
         const logEntry: TransactionLog = {
           id: `t-${Date.now()}`,
           brandName: brand.name,

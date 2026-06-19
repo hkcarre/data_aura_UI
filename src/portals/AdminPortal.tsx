@@ -1,10 +1,23 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import type { ConsentSetting, RewardItem, TransactionLog, SimulationLog } from '../types';
 import { 
   Users, ShieldCheck, Database, FileText, Cpu, Activity, DollarSign, 
   AlertTriangle, ShieldAlert, Play, RotateCcw, 
-  ArrowRight, Landmark, Share2, Scale
+  ArrowRight, Landmark, Share2, Scale, RefreshCw
 } from 'lucide-react';
+
+const API_BASE = 'http://localhost:3001';
+
+interface LiveLedgerEntry {
+  id: string;
+  timestamp: string;
+  action: string;
+  brandId: string;
+  auditHash?: string;
+  audienceSize?: number;
+  amount?: number;
+  tokenRef?: string;
+}
 
 interface AdminPortalProps {
   consentSettings: ConsentSetting[];
@@ -19,8 +32,36 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   transactionLogs,
   onNotify
 }) => {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'simulator' | 'governance' | 'partners' | 'revenue' | 'evals'>('dashboard');
-  
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'simulator' | 'governance' | 'partners' | 'revenue' | 'evals' | 'ledger'>('dashboard');
+
+  // Live Ledger State (fetched from backend)
+  const [liveLedger, setLiveLedger] = useState<LiveLedgerEntry[]>([]);
+  const [ledgerLoading, setLedgerLoading] = useState(false);
+  const [ledgerError, setLedgerError] = useState<string | null>(null);
+  const [lastRefreshed, setLastRefreshed] = useState<string>('');
+
+  const fetchLedger = useCallback(async () => {
+    setLedgerLoading(true);
+    setLedgerError(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/ledger`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      setLiveLedger(data);
+      setLastRefreshed(new Date().toLocaleTimeString());
+    } catch {
+      setLedgerError('Cannot reach Trust Layer backend (localhost:3001)');
+    } finally {
+      setLedgerLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchLedger();
+    const interval = setInterval(fetchLedger, 10000); // poll every 10s
+    return () => clearInterval(interval);
+  }, [fetchLedger]);
+
   // Guardrail Evals State
   const [evalRunning, setEvalRunning] = useState(false);
   const [evalResults, setEvalResults] = useState<{name: string, desc: string, status: 'idle' | 'running' | 'pass' | 'fail', log: string}[]>([
@@ -193,6 +234,14 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
           }`}
         >
           <ShieldAlert size={14} /> Guardrails & Evals
+        </button>
+        <button 
+          onClick={() => setActiveTab('ledger')} 
+          className={`px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all duration-200 ${
+            activeTab === 'ledger' ? 'bg-emerald-600 text-white shadow-md shadow-emerald-500/10' : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <Database size={14} /> Live Ledger
         </button>
       </div>
 
@@ -637,6 +686,78 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Live Ledger Panel */}
+      {activeTab === 'ledger' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-bold text-white">Live Audit Ledger</h2>
+              <p className="text-slate-500 text-xs mt-0.5">
+                Persistent SQLite log via Prisma — Trust Layer backend (localhost:3001)
+                {lastRefreshed && <span className="ml-2 text-emerald-500">Last updated: {lastRefreshed}</span>}
+              </p>
+            </div>
+            <button
+              onClick={fetchLedger}
+              disabled={ledgerLoading}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-slate-900 border border-slate-800 text-slate-300 hover:text-white rounded-lg transition-all"
+            >
+              <RefreshCw size={12} className={ledgerLoading ? 'animate-spin' : ''} />
+              {ledgerLoading ? 'Refreshing...' : 'Refresh'}
+            </button>
+          </div>
+
+          {ledgerError && (
+            <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm flex items-center gap-2">
+              <AlertTriangle size={16} />
+              {ledgerError} — Start the backend with <code className="font-mono bg-slate-800 px-1 rounded">npm run dev</code> in the /server directory.
+            </div>
+          )}
+
+          {!ledgerError && liveLedger.length === 0 && !ledgerLoading && (
+            <div className="p-8 text-center text-slate-500 text-sm border border-slate-800 rounded-xl">
+              No ledger entries yet. Activate a campaign from the Brand portal to generate entries.
+            </div>
+          )}
+
+          {liveLedger.length > 0 && (
+            <div className="overflow-x-auto rounded-xl border border-slate-800">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-slate-800 bg-slate-900/60">
+                    <th className="text-left py-3 px-4 text-slate-400 font-semibold">Timestamp</th>
+                    <th className="text-left py-3 px-4 text-slate-400 font-semibold">Action</th>
+                    <th className="text-left py-3 px-4 text-slate-400 font-semibold">Brand</th>
+                    <th className="text-left py-3 px-4 text-slate-400 font-semibold">Audience Size</th>
+                    <th className="text-left py-3 px-4 text-slate-400 font-semibold">Token Ref</th>
+                    <th className="text-left py-3 px-4 text-slate-400 font-semibold">Audit Hash</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {liveLedger.map((entry, i) => (
+                    <tr key={entry.id} className={`border-b border-slate-800/50 hover:bg-slate-800/30 transition-colors ${ i % 2 === 0 ? 'bg-slate-950/30' : ''}` }>
+                      <td className="py-2.5 px-4 font-mono text-slate-400">{new Date(entry.timestamp).toLocaleString()}</td>
+                      <td className="py-2.5 px-4">
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                          entry.action.includes('REVOK') || entry.action.includes('BLOCKED') ? 'bg-red-500/10 text-red-400 border border-red-500/20' :
+                          entry.action.includes('GRANTED') || entry.action.includes('PAYOUT') ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
+                          entry.action.includes('VERIFY') ? 'bg-sky-500/10 text-sky-400 border border-sky-500/20' :
+                          'bg-violet-500/10 text-violet-400 border border-violet-500/20'
+                        }`}>{entry.action.replace(/_/g, ' ')}</span>
+                      </td>
+                      <td className="py-2.5 px-4 text-slate-300 font-semibold capitalize">{entry.brandId}</td>
+                      <td className="py-2.5 px-4 text-slate-300">{entry.audienceSize ?? '—'}</td>
+                      <td className="py-2.5 px-4 font-mono text-slate-500 text-[10px]">{entry.tokenRef ?? '—'}</td>
+                      <td className="py-2.5 px-4 font-mono text-slate-600 text-[10px] max-w-[100px] truncate">{entry.auditHash ?? '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
     </div>

@@ -1,0 +1,56 @@
+// This is your Prisma schema file.
+// Learn more: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model ConsentToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  brandId   String
+  cohortId  String
+  status    String   @default("ACTIVE") // ACTIVE | REVOKED | EXPIRED
+  issuedAt  DateTime @default(now())
+  expiresAt DateTime?
+  updatedAt DateTime @updatedAt
+}
+
+model LedgerEntry {
+  id           String   @id @default(uuid())
+  timestamp    DateTime @default(now())
+  action       String
+  brandId      String
+  auditHash    String?
+  audienceSize Int?
+  amount       Float?
+  tokenRef     String?
+
+  @@index([brandId])
+  @@index([timestamp])
+}
+
+model ConsentSetting {
+  id        String   @id @default(uuid())
+  userId    String   @default("consumer_001")
+  brandId   String
+  category  String
+  enabled   Boolean  @default(true)
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, brandId, category])
+}
+
+model WalletTransaction {
+  id            String   @id @default(uuid())
+  userId        String   @default("consumer_001")
+  brandId       String
+  amount        Float
+  transactionId String   @unique
+  createdAt     DateTime @default(now())
+}

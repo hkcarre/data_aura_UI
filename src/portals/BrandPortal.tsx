@@ -55,24 +55,47 @@ export const BrandPortal: React.FC<BrandPortalProps> = ({
     purposeDeclared: true
   });
 
-  const handleActivateCampaign = () => {
+  const handleActivateCampaign = async () => {
     setActivating(true);
-    setTimeout(() => {
+    
+    try {
+      const response = await fetch('http://localhost:3001/api/v1/aamp/audience/request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          brandId: 'nike',
+          targetCategory: selectedCategory,
+          requestedEpsilon: 0.1
+        })
+      });
+
+      const data = await response.json();
+      
       setActivating(false);
-      onNotify(`Campaign "${segmentName}" activated with incentive "${incentiveOffer}". Audience sent to Snowflake Clean Room.`);
+
+      if (!response.ok) {
+        onNotify(`Campaign Blocked: ${data.error} (${data.reason})`);
+        return;
+      }
+
+      onNotify(`Campaign "${segmentName}" activated. Token [${data.cohortToken}] issued. Audience Size: ${data.audienceSize}`);
       
       // Log transaction in user's audit logs
       const logEntry: TransactionLog = {
         id: `t-brand-${Date.now()}`,
-        brandName: 'Brand Campaign (Active)',
-        dataProduct: `${segmentName} Cohort`,
+        brandName: 'Brand Campaign (AltaStata Runtime)',
+        dataProduct: `${segmentName} Cohort (Size: ${data.audienceSize}, DP Noise: ${data.noiseApplied})`,
         accessedAt: new Date().toISOString().replace('T', ' ').slice(0, 16),
         purpose: `Targeted advertisement: incentive match ${incentiveOffer}`,
         rewardPaid: incentiveOffer.split(' ')[0],
-        status: 'Audited'
+        status: 'Audited via Ledger'
       };
       setTransactionLogs(prev => [logEntry, ...prev]);
-    }, 2000);
+
+    } catch (error) {
+      setActivating(false);
+      onNotify('Failed to connect to Data Aura Trust Layer backend.');
+    }
   };
 
   // Recharts sample data
